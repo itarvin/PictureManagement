@@ -5,16 +5,96 @@ use think\paginator\driver\Bootstrap;
 use think\facade\Cache;
 class Index extends Controller
 {
+    /**
+     * 应用场景：首页
+     * @author itarvin[itarvin@163.com]
+     * @return view
+     */
     public function index()
     {
-        return $this->fetch('index/index');
+        return $this->fetch('Index/index');
     }
 
+    /**
+     * 应用场景：主页
+     * @author itarvin[itarvin@163.com]
+     * @return view
+     */
     public function wel()
     {
-        return $this->fetch('index/wel');
+        return $this->fetch('Index/wel');
     }
 
+    /**
+     * 应用场景：按文件搜索所有对应文件
+     * @author itarvin[itarvin@163.com]
+     * @return json
+     */
+    public function searchname()
+    {
+        $filename = input('filename');
+
+        if(!empty($filename)){
+
+            if(!file_exists('./en_zh/file_url.php')){
+
+                // 重新生成一份文件
+                $dirPic = './images/';
+
+                $paths = $this->excavateDir($dirPic);
+
+                // 追加当前的目录
+                $paths[] = $dirPic;
+
+                $files = [];
+
+                foreach($paths as $k => $path){
+
+                    $pathFiles = $this->getAllFile($path);
+
+                    $files = array_merge($files, $pathFiles);
+                }
+                $all = $this->getFileName($files);
+
+                $this->makefile('$file_url',$all,'file_url');
+            }
+            include "./en_zh/file_url.php";
+
+            $names = [];
+
+            foreach ($file_url as $key => $value) {
+
+                $names[] = $key;
+            }
+            if(in_array($filename, $names)){
+
+                $data['dir'] = [];
+                $file = 'http://'.$_SERVER['SERVER_NAME'].substr($file_url[$filename],1);
+                $re = getimagesize($file);
+
+                $re['size'] = round($this->getsize(get_headers($file,true)['Content-Length'],'kb'),1).'k';
+
+                $re['url'] = $file;
+                $re['name'] = $this->cut_str($file,'/',-1);
+
+                $re['last_edit'] = date('Y-m-d H:i:s',$this->remote_filectime($file));
+
+                $data['files'] = $re;
+
+                $data['url'] = $this->dealUrl('./images/');
+
+                return json(['code' => '200', 'info' => 'OK', 'data' => $data]);
+            }else {
+                return json(['code' => '404', 'info' => 'NO', 'data' => []]);
+            }
+        }
+    }
+
+    /**
+     * 应用场景：更新缓存
+     * @author itarvin[itarvin@163.com]
+     * @return json
+     */
     public function getcache()
     {
         $input = input();
@@ -32,12 +112,16 @@ class Index extends Controller
 
         $deal = $input['deal'] + 1;
 
-        $total = $input['total'] - 1;
+        $total = $input['total'];
 
         return ['code' => 200, 'total' => $total, 'deal' => $deal];
     }
 
-    public function selfplay($path)
+    /**
+     * 应用场景：自询更新
+     * @author itarvin[itarvin@163.com]
+     */
+    private function selfplay($path)
     {
         $dirPic = $path ? $path : './images/';
 
@@ -50,12 +134,17 @@ class Index extends Controller
 
             $data['files'] = $this->getfile($dirPic);
 
-            $data['url'] = input('path') ? $this->enalUrl(input('path')) : $this->dealUrl('./images/');
+            $data['url'] = $path ? $this->dealUrl($path) : $this->dealUrl('./images/');
 
             cache($dirPic,$data, 3600*24);
         }
     }
 
+    /**
+     * 应用场景：请求更新
+     * @author itarvin[itarvin@163.com]
+     * @return json
+     */
     public function play()
     {
         $dirPic = input('path') ? $this->enalUrl(input('path')) : './images/';
@@ -68,13 +157,18 @@ class Index extends Controller
 
             $data['files'] = $this->getfile($dirPic);
 
-            $data['url'] = input('path') ? $this->enalUrl(input('path')) : $this->dealUrl('./images/');
+            $data['url'] = input('path') ? input('path') : $this->dealUrl('./images/');
 
             cache($dirPic,$data, 3600*24);
         }
         return json(['code' => '200', 'info' => 'OK', 'data' => $data]);
     }
 
+    /**
+     * 应用场景：合并目录的路径和名称
+     * @author itarvin[itarvin@163.com]
+     * @return array
+     */
     private function dealDir($dirs)
     {
         $arr = [];
@@ -95,6 +189,11 @@ class Index extends Controller
         return $arr;
     }
 
+    /**
+     * 应用场景：请求处理清空缓存并生成新的缓存
+     * @author itarvin[itarvin@163.com]
+     * @return json
+     */
     public function cleargetdir()
     {
         // 清空所有缓存且返回所有目录供前台刷新缓存
@@ -111,6 +210,33 @@ class Index extends Controller
         return json(['code' => 200, 'total' => $total, 'deal' => 0]);
     }
 
+    /**
+     * 应用场景：获取目录名称并返回对应中文名
+     * @author itarvin[itarvin@163.com]
+     * @return json
+     */
+    private function getFileName($path)
+    {
+        $names = [];
+
+        foreach ($path as $key => $value) {
+
+            $str_count = substr_count($value,'/');
+
+            $name = $this->cut_str($value,'/',$str_count);
+
+            $filename = $this->cut_str($name,'.',0);
+
+            $names[$filename] = $value;
+        }
+        return $names;
+    }
+
+    /**
+     * 应用场景：获取目录名称并返回对应中文名
+     * @author itarvin[itarvin@163.com]
+     * @return array
+     */
     private function getdirname($path)
     {
         $names = [];
@@ -128,7 +254,11 @@ class Index extends Controller
         return $names;
     }
 
-    // 同级新建文件夹
+    /**
+     * 应用场景：同级新建文件夹
+     * @author itarvin[itarvin@163.com]
+     * @return json
+     */
     public function newdir()
     {
         $input = input();
@@ -177,11 +307,16 @@ class Index extends Controller
         }
     }
 
-    public function mkDir($path)
+    /**
+     * 应用场景：新建文件夹
+     * @author itarvin[itarvin@163.com]
+     * @return json
+     */
+    private function mkDir($path)
     {
         if(!file_exists($path)) {
 
-            if(mkdir($path,0777,true)) {
+            if(mkdir($path,0777,false)) {
 
                 return ['code' => 200];
             }else{
@@ -194,8 +329,11 @@ class Index extends Controller
         }
     }
 
-
-    // 处理链接
+    /**
+     * 应用场景：处理链接
+     * @author itarvin[itarvin@163.com]
+     * @return array|string
+     */
     private function dealUrl($url)
     {
         if(is_array($url))
@@ -210,13 +348,22 @@ class Index extends Controller
         return $url;
     }
 
-    // 拼接链接
+    /**
+     * 应用场景：拼接链接
+     * @author itarvin[itarvin@163.com]
+     * @return string
+     */
     private function enalUrl($url)
     {
         $url = str_replace('it',"/",'.'.$url);
         return $url;
     }
 
+    /**
+     * 应用场景：拼接链接
+     * @author itarvin[itarvin@163.com]
+     * @return array
+     */
     private function excavateDir($dir)
     {
         static $arr = [];
@@ -245,6 +392,11 @@ class Index extends Controller
         return $arr;
     }
 
+    /**
+     * 应用场景：拼装返回文件信息
+     * @author itarvin[itarvin@163.com]
+     * @return array
+     */
     private function getfile($path)
     {
         $links = [];
@@ -256,7 +408,11 @@ class Index extends Controller
         return $data;
     }
 
-    // 根据路径获取文件
+    /**
+     * 应用场景：根据路径获取文件
+     * @author itarvin[itarvin@163.com]
+     * @return array
+     */
     private function getAllFile($path)
     {
         $data = [];
@@ -274,6 +430,11 @@ class Index extends Controller
         return $data;
     }
 
+    /**
+     * 应用场景：递归获取目录
+     * @author itarvin[itarvin@163.com]
+     * @return array
+     */
     private function getdirglo($dir)
     {
 
@@ -291,52 +452,25 @@ class Index extends Controller
                     if(is_dir($dir.$file)){
 
                         $dirr = $dir.$file."/";
-
-                        array_push($arr,$dirr);
-
+                        if(!in_array($dirr,$arr)){
+                            array_push($arr,$dirr);
+                        }
                         if(is_dir($dirr)){
                             $this->getdirglo($dirr);
                         }
                     }
-
                 }
             }
         }
         return $arr;
     }
 
-    // private function play()
-    // {
-    //     $curpage = input('page') ? input('page') : 1;
-    //
-    //     $curUrl = config('selfDealDir');
-    //
-    //     $dirPic = cache('dirPic');
-    //     if(!$dirPic){
-    //         $dirPic = $this->my_dir($curUrl);
-    //         cache('dirPic', $dirPic, 3600*24*30);
-    //     }
-    //
-    //     $url = 'http://'.$_SERVER['SERVER_NAME'].'/images';
-    //
-    //     $links = cache('links');
-    //
-    //     if(!$links){
-    //         $links = $this->deepLink($dirPic, $url);
-    //         cache('links', $links, 3600 * 24 *30);
-    //     }
-    //
-    //     $result = $this->makeList($links,$curpage);
-    //
-    //     var_dump($result);die;
-    //
-    //     $this->assign([
-    //         'list' => $result['list'],
-    //         'plistpage' => $result['plistpage'],
-    //     ]);
-    //     return $this->fetch('Index/play');
-    // }
 
+    /**
+     * 应用场景：数组转分页
+     * @author itarvin[itarvin@163.com]
+     * @return json
+     */
     private function makeList($links,$curpage)
     {
 
@@ -358,6 +492,11 @@ class Index extends Controller
         ];
     }
 
+    /**
+     * 应用场景：处理远程文件信息
+     * @author itarvin[itarvin@163.com]
+     * @return timestamp
+     */
     private function remote_filectime($url_file){
 
         $headInf = get_headers($url_file,1);
@@ -366,7 +505,8 @@ class Index extends Controller
     }
 
     /**
-     * 按符号截取字符串的指定部分
+     * 应用场景：按符号截取字符串的指定部分
+     * @author itarvin[itarvin@163.com]
      * @param string $str 需要截取的字符串
      * @param string $sign 需要截取的符号
      * @param int $number 如是正数以0为起点从左向右截  负数则从右向左截
@@ -402,7 +542,11 @@ class Index extends Controller
         }
     }
 
-
+    /**
+     * 应用场景：拼装文件信息
+     * @author itarvin[itarvin@163.com]
+     * @return array
+     */
     private function loadInfo($links)
     {
         $result = [];
@@ -420,7 +564,6 @@ class Index extends Controller
 
                 $re['url'] = $value;
                 $re['name'] = $this->cut_str($value,'/',-1);
-                // $re['name'] = $this->cut_str($this->cut_str($value,'/',-1),'.',0);
 
                 $re['last_edit'] = date('Y-m-d H:i:s',$this->remote_filectime($value));
 
@@ -431,45 +574,11 @@ class Index extends Controller
         return $result;
     }
 
-    private function deepLink($dirPic, $imgUrl)
-    {
-        $result = [];
-        // 判定数据下面是否还存在子文件夹
-        if(is_array($dirPic)){
-            foreach ($dirPic as $key => $value) {
-                if(is_numeric($key)){
-                    $result[$key] = $imgUrl.'/'.$value;
-                }else {
-                    $result[$key] = $this->deepLink($value,$imgUrl.'/'.$key);
-                }
-            }
-        }else {
-            $result = $imgUrl.'/'.$dirPic;
-        }
-        return $result;
-    }
-
-    // 安检
-
-    private function my_dir($dir) {
-
-        $files = [];
-
-        if(@$handle = opendir($dir)) { //注意这里要加一个@，不然会有warning错误提示：）
-        while(($file = readdir($handle)) != false) {
-            if($file != ".." && $file != ".") { //排除根目录；
-                $file = iconv('gb2312','UTF-8',$file);
-                if(is_dir($dir."/".$file)) { //如果是子文件夹，就进行递归
-                    $files[$file] = $this->my_dir($dir."/".$file);
-                }
-            }
-        }
-        closedir($handle);
-        return $files;
-        }
-    }
-
-    // 计算文件大小
+    /**
+     * 应用场景：计算文件大小
+     * @author itarvin[itarvin@163.com]
+     * @return string
+     */
     private function getsize($size, $format = 'kb'){
         $p = 0;
         if ($format == 'kb') {
@@ -484,6 +593,8 @@ class Index extends Controller
     }
 
     /**
+     * 应用场景：生成文件
+     * @author itarvin[itarvin@163.com]
      * @param string $variable 数组名
      * @param array $array 数组
      * @param string $file 文件名
@@ -494,6 +605,7 @@ class Index extends Controller
         // 判断文件是否存在，未不存在，则创建文件并写入文件。如存在，则覆盖写入重新生成文件
         if(!file_exists($file_path))
         {
+
             //0777表示文件夹权限，windows默认已无效，但这里因为用到第三个参数，得填写；true/false表示是否可以递归创建文件夹
             mkdir($file_path,0777,false);
 
@@ -502,25 +614,39 @@ class Index extends Controller
             file_put_contents("./en_zh/".$file.".php",$content);
             return ['code' => 200];
         }else{
+
             if(file_exists("./en_zh/".$file.".php")){
+
                 include "./en_zh/".$file.".php";
 
-                foreach ($array as $key => $value) {
-                    if(array_key_exists($key,$en_zh)){
+                if($variable == '$en_zh'){
 
-                        return ['code' => 400,'info' => '已存在相同英文目录名称'];
-                    }else if(in_array($value, $en_zh)){
+                    foreach ($array as $key => $value) {
+                        if(array_key_exists($key,$en_zh)){
 
-                        return ['code' => 400,'info' => '已存在相同中文目录名称'];
-                    }else {
-                        $newarray = array_merge($array, $en_zh);
+                            return ['code' => 400,'info' => '已存在相同英文目录名称'];
+                        }else if(in_array($value, $en_zh)){
 
-                        $content = "<?php $variable=".var_export($newarray, true).";?>";
+                            return ['code' => 400,'info' => '已存在相同中文目录名称'];
+                        }else {
+                            $newarray = array_merge($array, $en_zh);
 
-                        file_put_contents("./en_zh/".$file.".php",$content);
+                            $content = "<?php $variable=".var_export($newarray, true).";?>";
 
-                        return ['code' => 200];
+                            file_put_contents("./en_zh/".$file.".php",$content);
+
+                            return ['code' => 200];
+                        }
                     }
+                }else if($variable == '$file_url') {
+
+                    $newarray = array_merge($array, $file_url);
+
+                    $content = "<?php $variable=".var_export($newarray, true).";?>";
+
+                    file_put_contents("./en_zh/".$file.".php",$content);
+
+                    return ['code' => 200];
                 }
 
             }else {
