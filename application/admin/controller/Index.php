@@ -25,6 +25,25 @@ class Index extends Controller
         return $this->fetch('Index/wel');
     }
 
+    // 测
+    public function dir()
+    {
+        $parame = input('path');
+        $url = ltrim($this->enalUrl($parame),'.');
+        $arr = explode("/",$url);
+        include "./en_zh/en_zh.php";
+
+        foreach ($arr as $key => $value) {
+            if($value != ""){
+                $data[] = ($value== "images") ? '根目录' : $en_zh[$value];
+            }
+        }
+        $datas = '';
+        foreach ($data as $key => $value) {
+            $datas .= $value.'/';
+        }
+        return json($datas);
+    }
     /**
      * 应用场景：按文件搜索所有对应文件
      * @author itarvin[itarvin@163.com]
@@ -69,7 +88,10 @@ class Index extends Controller
             if(in_array($filename, $names)){
 
                 $data['dir'] = [];
+
                 $file = 'http://'.$_SERVER['SERVER_NAME'].substr($file_url[$filename],1);
+                // $file = './'.substr($file_url[$filename],1);
+
                 $re = getimagesize($file);
 
                 $re['size'] = round($this->getsize(get_headers($file,true)['Content-Length'],'kb'),1).'k';
@@ -136,6 +158,8 @@ class Index extends Controller
 
             $data['url'] = $path ? $this->dealUrl($path) : $this->dealUrl('./images/');
 
+            $data['enurl'] = $path ? $this->cutDir($path) : $this->cutDir('./images/');
+
             cache($dirPic,$data, 3600*24);
         }
     }
@@ -159,9 +183,23 @@ class Index extends Controller
 
             $data['url'] = input('path') ? input('path') : $this->dealUrl('./images/');
 
+            // $data['enurl'] = input('path') ? $this->cutDir($this->enalUrl(input('path'))) : $this->cutDir('./images/');
+            $data['enurl'] = input('path') ? $this->dealUrl(input('path')) : './images/';
+
             cache($dirPic,$data, 3600*24);
         }
         return json(['code' => '200', 'info' => 'OK', 'data' => $data]);
+    }
+
+
+    // 截取中文路径
+    public function cutDir($dir)
+    {
+        $deal = ltrim($dir, ".");
+        $count = substr_count($deal, '/');
+        $sign = $this->cut_str($deal,'/',$count-1);
+        include "./en_zh/en_zh.php";
+        return $trkey = ($sign== "images") ? '根目录' : $en_zh[$sign];
     }
 
     /**
@@ -402,7 +440,14 @@ class Index extends Controller
         $links = [];
         $file = $this->getAllFile($path);
         foreach ($file as $key => $value) {
-            $links[] = 'http://'.$_SERVER['SERVER_NAME'].substr($value,1);
+            // 过滤windows系统的缩虐图db
+            $values = $this->cut_str($value,'/',-1);
+
+            if($values != 'Thumbs.db'){
+                // $links[] = 'http://'.$_SERVER['SERVER_NAME'].substr($value,1);
+                // $links[] = '..'.substr($value,1);
+                $links[] = substr($value,1);
+            }
         }
         $data = $this->loadInfo($links);
         return $data;
@@ -419,7 +464,7 @@ class Index extends Controller
         $hadle = opendir($path);
         while($file = readdir($hadle) )
         {
-            $file = iconv('gb2312','UTF-8',$file);
+            // $file = iconv('gb2312','UTF-8',$file);
             if(!in_array($file,array('.','..')) )
             {
                 if(!is_dir($path.$file)){
@@ -465,33 +510,6 @@ class Index extends Controller
         return $arr;
     }
 
-
-    /**
-     * 应用场景：数组转分页
-     * @author itarvin[itarvin@163.com]
-     * @return json
-     */
-    private function makeList($links,$curpage)
-    {
-
-        $listRow = 100;//每页30行记录
-
-        $showdata = array_slice($links, ($curpage - 1) * $listRow, $listRow,true);
-
-        $p = Bootstrap::make($showdata, $listRow, $curpage, count($links), false, [
-            'var_page' => 'page',
-            'path'     => url('Index/play'),
-            'query'    => [],
-            'fragment' => '',
-        ]);
-
-        $p->appends($_GET);
-        return [
-            'list' => $p,
-            'plistpage' => $p->render(),
-        ];
-    }
-
     /**
      * 应用场景：处理远程文件信息
      * @author itarvin[itarvin@163.com]
@@ -499,7 +517,7 @@ class Index extends Controller
      */
     private function remote_filectime($url_file){
 
-        $headInf = get_headers($url_file,1);
+        $headInf = get_headers('http://'.$_SERVER['SERVER_NAME'].$url_file,1);
 
         return strtotime($headInf['Last-Modified']);
     }
@@ -558,12 +576,17 @@ class Index extends Controller
                 $result[$key] = $this->loadInfo($value);
             }else {
 
-                $re = getimagesize($value);
+                $url = 'http://'.$_SERVER['SERVER_NAME'].$value;
 
-                $re['size'] = round($this->getsize(get_headers($value,true)['Content-Length'],'kb'),1).'k';
+                $re = getimagesize($url);
+
+                $re['size'] = round($this->getsize(get_headers($url,true)['Content-Length'],'kb'),1).'k';
 
                 $re['url'] = $value;
+
                 $re['name'] = $this->cut_str($value,'/',-1);
+
+                $re['nameid'] = $this->cut_str($this->cut_str($value,'/',-1),'.',0);
 
                 $re['last_edit'] = date('Y-m-d H:i:s',$this->remote_filectime($value));
 
@@ -639,7 +662,6 @@ class Index extends Controller
                         }
                     }
                 }else if($variable == '$file_url') {
-
                     $newarray = array_merge($array, $file_url);
 
                     $content = "<?php $variable=".var_export($newarray, true).";?>";
@@ -650,13 +672,30 @@ class Index extends Controller
                 }
 
             }else {
-
                 $content = "<?php $variable=".var_export($array, true).";?>";
 
                 file_put_contents("./en_zh/".$file.".php",$content);
 
                 return ['code' => 200];
             }
+        }
+    }
+    // 文件上传
+    public function upload()
+    {
+        // 这里路径应该实时获取，but前端需求无法实现
+        $path = "images/";
+        if($file = request()->file('file')){
+            $name = iconv('utf-8','gbk',$file->getInfo()['name']);
+            $info = $file->validate(['size'=>4194304,'ext'=>'jpg,png,gif'])->move($path,$name);
+            if($info){
+                return ['code' => 200 , 'info' => 'OK'];
+            }else {
+                // 上传失败获取错误信息
+                return ['code' => 400 , 'info' => $file->getError()];
+            }
+        }else {
+            return ['code' => 400 , 'info' => '请先选择上传文件！'];
         }
     }
 }

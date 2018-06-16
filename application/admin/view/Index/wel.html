@@ -6,55 +6,68 @@
         <meta name="renderer" content="webkit">
         <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
         <meta name="viewport" content="width=device-width,user-scalable=yes, minimum-scale=0.4, initial-scale=0.8,target-densitydpi=low-dpi" />
-
         <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
         {load href="__ADMIN__/css/font.css" /}
-    	{load href="__ADMIN__/css/xadmin.css" /}
-
+        {load href="__ADMIN__/css/xadmin.css" /}
+        {load href="__ADMIN__/uploads/dropzone.css"/}
+        {load href="__ADMIN__/css/zoom.css" media="all" /}
     </head>
     <style>
     .site-demo-flow img {width: 100px; height: 100px;padding: 10px;}
-    /* .showPic ul li{width:150px;margin-top:10px;float: left;position:relative;} */
-    .showPic ul li{width:150px;margin-top:10px;float: left;position:relative;margin:10px;}
-    .showPic ul img {float: left;width:150px;height:150px;}
+    .showPic ul li{width:150px;margin-top:10px;float: left;position:relative;margin:8px;}
+    .showPic ul img {float: left;width:150px;height:120px;}
     .download {float:right;}
-    .edit{width:150px;position: absolute;bottom:0;}
+    .edit{width:150px;position: absolute;bottom:16px;}
+    .aaaa{clear:both;}
+    .more{position: relative;height:40px;margin-top:20px;}
+    .load-btn{position: absolute;left:50%;top:50%;transform: translate(-50%, -50%);}
+    .right-btn{position:absolute;right:15px;top:25%;}
+    .directory{background-color:#009688;display:inline-block;}
     </style>
     <body>
     <div class="x-body layui-anim layui-anim-up">
-    <blockquote class="layui-elem-quote">
-        <div>
+    <blockquote class="layui-elem-quote" style="position: relative;">
             <button class="layui-btn layui-btn-primary" onclick="goback()">返回</button>
             <button class="layui-btn layui-btn-normal" id="newdir">新建文件夹</button>
-            <!-- <button class="layui-btn layui-btn-warm">刷新返回</button> -->
-            <button class="layui-btn layui-btn-normal" onclick="clearLoad()">清缓存刷新缓存</button>
-            <input type="text" name="search"  placeholder="请输入用户名" autocomplete="off" class="layui-input" style="width:200px;float:right;">
-            <button class="layui-btn" style="float:right;" onclick="search()"  lay-submit="" lay-filter="sreach"><i class="layui-icon">&#xe615;</i></button>
-        </div>
+            <span class="layui-btn layui-btn-primary layui-btn-lg">当前目录是:<span id="mydir" style="color:green;"></span></span>
+            <input type="hidden" id="path">
+            <div class="right-btn" align="right">
+                <button class="layui-btn layui-btn-warm" onclick="reloadPage()">刷新</button>
+                <button class="layui-btn layui-btn-normal" onclick="clearLoad()">清缓存刷新缓存</button>
+                <button class="layui-btn" style="" onclick="search()"  lay-submit="" lay-filter="sreach"><i class="layui-icon">&#xe615;</i></button>
+                <input type="text" name="search"  placeholder="请输入用户名" autocomplete="off" class="layui-input" style="width:200px;float:right;">
+            </div>
     </blockquote>
     <fieldset class="layui-elem-field layui-field-title" style="margin-top: 20px;">
-    <div class="showPic">
-        <ul id="myFiles">
-            <li onmousemove="disBtn(this)" onmouseout="displayBtn(this)">
-                <img src="/static/admin/images/file.jpg">
-                <div class='edit'>
-                    <button class="layui-btn layui-btn-lg layui-btn-primary layui-btn-radius">文件夹名</button>
-                </div>
-            </li>
-
-            <li onmousemove="disBtn(this)" onmouseout="displayBtn(this)">
-                <img src="/images/的.png">
-                <div class='edit'>
-                    <button class="layui-btn">编辑</button>
-                    <button class="layui-btn download">下载</button>
-                </div>
-            </li>
-
-        </ul>
+    <div id="mydropzone" class="dropzone">
+        <div class="showPic">
+            <ul id="myFiles">
+                <li>
+                    <img src="/static/admin/images/file.jpg">
+                    <div class='edit'>
+                        <button class="layui-btn layui-btn-lg layui-btn-primary layui-btn-radius">文件夹名</button>
+                    </div>
+                </li>
+                <li>
+                    <img src="/static/admin/images/defa.jpg">
+                    <div class='edit'>
+                        <button class="layui-btn">编辑</button>
+                        <button class="layui-btn download">下载</button>
+                    </div>
+                    <p>defa.jpg</p>
+                </li>
+            </ul>
+        <div style="clear: both"></div>
+        </div>
+        <div class="more">
+            <button class="layui-btn layui-btn-primary load-btn" id="loadMore"></button>
+        </div>
     </div>
     {load href="__ADMIN__/lib/layui/layui.js" charset="utf-8" /}
-    {load href="__ADMIN__/js/jquery-3.3.1.min.js" /}
+    <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+    {load href="__ADMIN__/uploads/dropzone.min.js" /}
     {load href="__ADMIN__/js/xadmin.js" /}
+    {load href="__ADMIN__/js/zoom.min.js" /}
     <script>
     // 新建文件夹
     function newdir(url)
@@ -70,11 +83,14 @@
                     url :url
                 };
                 $.ajax({
-        			type: 'post',
-        			url: '{:url("index/newdir")}',
-        			dataType: 'json',
-        			data: data,
-        			success: function(msg){
+                    type: 'post',
+                    url: '{:url("index/newdir")}',
+                    dataType: 'json',
+                    data: data,
+                    success: function(msg){
+                        // 关闭加载层
+                        var index = layer.load();
+                        layer.close(index);
                         if(msg.code == 200){
                             layer.msg('创建文件夹完毕,请刷新！中文名:'+ chinese +'<br>英文名:'+english);
                         }else if(msg.code == 400) {
@@ -82,121 +98,236 @@
                         }else if(msg.code == 500){
                             layer.msg('已存在同名文件夹！请重新输入！');
                         }
-
-        			},
-        			beforeSend: function(request) {
-        				request.setRequestHeader("X-Requested-Witzh","XMLHttpRequest");
-        			}
-        		});
+                    },
+                    beforeSend:function(XMLHttpRequest){
+                        var index = layer.load(0, {shade: false}); //0代表加载的风格，支持0-2
+                    },
+                });
             });
+        });
+    }
+    //获取JSON数据长度
+    function getJsonLength(jsonData){
+       var jsonLength = 0;
+       for(var item in jsonData){
+          jsonLength++;
+       }
+       return jsonLength;
+    }
+    function loaddir()
+    {
+        var dir = $('#path').val();
+        $.ajax({
+            type: 'post',
+            url: "{:url('index/dir')}",
+            dataType: 'json',
+            data: {path:dir},
+            success: function(msg){
+                $('#mydir').text(msg);
+            },
+            beforeSend: function(request) {
+                request.setRequestHeader("X-Requested-Witzh","XMLHttpRequest");
+            }
+        });
+    }
+    // 放大图片
+    function loadPic(imgpath,width)
+    {
+        var html = "<img src="+imgpath+">";
+        //页面层-佟丽娅
+        layer.open({
+          type: 1,
+          title: false,
+          closeBtn: 0,
+          area: width+'px',
+          skin: 'layui-layer-nobg', //没有背景色
+          shadeClose: true,
+          content: html
         });
     }
     window.onload=function(){
         var data;
         $.ajax({
-			type: 'get',
-			url: '{:url('index/play')}',
-			dataType: 'json',
-			data: data,
-			success: function(msg){
+            type: 'get',
+            url: "{:url('index/play')}",
+            dataType: 'json',
+            data: data,
+            success: function(msg){
+                // 关闭加载层
+                var index = layer.load();
+                layer.close(index);
                 if(msg.code == '200'){
-
                     var html = "";
-
                     var data = msg.data;
-
                     if(data.dir != ''){
-
                         $.each(data.dir, function(idx, obj) {
-
-                            html += '<li onmousemove="disBtn(this)" onmouseout="displayBtn(this)"><img src="/static/admin/images/file.jpg" id="'+obj.dir+'"><div class="edit" style="display:none;"><button class="layui-btn layui-btn-lg layui-btn-primary layui-btn-radius">'+obj.name+'</button></div></li>';
+                            html += '<li><img src="/static/admin/images/file.jpg" id="'+obj.dir+'"><div class="edit"><button class="layui-btn layui-btn-lg layui-btn-primary layui-btn-radius">'+obj.name+'</button></div></li>';
                             var id = '#'+obj.dir;
                             $(id).attr('onclick','openWin();');
                         });
                     }
-                    if(data.file != ''){
-
-                        var file = data.files;
-
-                        $.each(file, function(idx, obj) {
-
-                            html += '<li onmousemove="disBtn(this)" onmouseout="displayBtn(this)"><img src="'+obj.url+'"><div class="edit" style="display:none;"><button class="layui-btn">编辑</button><button class="layui-btn download"><a href="'+obj.url+'" download="'+obj.name+'">下载</a></button></div></li>';
-                        });
+                    var fileCount = getJsonLength(data.files);
+                    if(fileCount > 20){
+                        if(data.file != ''){
+                            var file = data.files;
+                            for (var i = 0; i < 20; i++) {
+                                html += '<li onmousemove="disBtn(this)" onmouseout="displayBtn(this)"><img id="'+file[i].nameid+'" src="'+file[i].url+'"><div class="edit" style="display:none;"><button class="layui-btn">编辑</button><button class="layui-btn download"><a href="'+file[i].url+'" download="'+file[i].name+'">下载</a></button></div><p>'+file[i].name+'</p></li>';
+                            }
+                        }
+                        var page = 2;
+                        // 给更多追加
+                        $('#loadMore').text('加载更多');
+                        $('#loadMore').attr('onclick', 'loadMore('+page+')');
+                    }else{
+                        if(data.file != ''){
+                            var file = data.files;
+                            for (var i = 0; i < fileCount; i++) {
+                                html += '<li onmousemove="disBtn(this)" onmouseout="displayBtn(this)"><img src="'+file[i].url+'"><div class="edit" style="display:none;"><button class="layui-btn">编辑</button><button class="layui-btn download"><a href="'+file[i].url+'" download="'+file[i].name+'">下载</a></button></div><p>'+file[i].name+'</p></li>';
+                            }
+                        }
+                        $('#loadMore').text('没有更多了');
                     }
                     $("#myFiles").html(html);
-
                     $.each(data.dir, function(idx, obj) {
                         var id = '#'+obj.dir;
                         $(id).attr('onclick','openWin("'+obj.dir+'");');
+                    });
+                    $.each(data.files, function(idx, obj) {
+                        var id = '#'+obj.nameid;
+                        $(id).attr('onclick','loadPic("'+obj.url+'","'+obj[0]+'");');
                     });
                     $('#newdir').attr('onclick','newdir("'+data.url+'")');
-
+                    $('#path').val(data.url);
                 }
-			},
-			beforeSend: function(request) {
-				request.setRequestHeader("X-Requested-Witzh","XMLHttpRequest");
-			}
-		});
+            },
+            beforeSend:function(XMLHttpRequest){
+                var index = layer.load(0, {shade: false}); //0代表加载的风格，支持0-2
+            },
+        });
+        // 缓冲加载
+        setTimeout('loaddir()',1000);
     }
+    function loadMore(page,path)
+    {
+        var page = page > 1 ? page : 1;
+        var limit = page * 20;
+        var data;
+        $.ajax({
+            type: 'get',
+            url: "{:url('index/play')}",
+            dataType: 'json',
+            data: {path:path},
+            success: function(msg){
+                // 关闭加载层
+                var index = layer.load();
+                layer.close(index);
+                if(msg.code == '200'){
+                    var html = "";
+                    var data = msg.data;
+                    var fileCount = getJsonLength(data.files);
+                    if(fileCount > limit){
+                        if(data.file != ''){
+                            var file = data.files;
+                            for (var i = (page-1) * 20; i < limit; i++) {
+                                html += '<li onmousemove="disBtn(this)" onmouseout="displayBtn(this)"><img  id="'+file[i].nameid+'" src="'+file[i].url+'"><div class="edit" style="display:none;"><button class="layui-btn">编辑</button><button class="layui-btn download"><a href="'+file[i].url+'" download="'+file[i].name+'">下载</a></button></div><p>'+file[i].name+'</p></li>';
+                            }
+                        }
+                        // 给更多追加
+                        $('#loadMore').text('加载更多');
+                        $('#loadMore').removeAttr('onclick', 'loadMore()');
+                        var nextPage = page + 1;
+                        $('#loadMore').attr('onclick', 'loadMore('+nextPage+')');
+                    }else{
+                        if(data.file != ''){
 
-    function openWin(url,ischeck = 'yes')
+                            var file = data.files;
+                            for (var i = 0; i < fileCount; i++) {
+                                html += '<li onmousemove="disBtn(this)" onmouseout="displayBtn(this)"><img src="'+file[i].url+'"><div class="edit" style="display:none;"><button class="layui-btn">编辑</button><button class="layui-btn download"><a href="'+file[i].url+'" download="'+file[i].name+'">下载</a></button></div><p>'+file[i].name+'</p></li>';
+                            }
+                        }
+                        $('#loadMore').text('没有更多了');
+                        $('#loadMore').removeAttr('onclick', 'loadMore()');
+                    }
+                    $("#myFiles").append(html);
+                    $('#newdir').attr('onclick','newdir("'+data.url+'")');
+                    $.each(data.files, function(idx, obj) {
+                        var id = '#'+obj.nameid;
+                        $(id).attr('onclick','loadPic("'+obj.url+'","'+obj[0]+'");');
+                    });
+                }
+            },
+            beforeSend:function(XMLHttpRequest){
+                var index = layer.load(0, {shade: false}); //0代表加载的风格，支持0-2
+            },
+        });
+    }
+    function openWin(url,ischeck)
     {
         $.ajax({
-			type: 'get',
-			url: '{:url('index/play')}',
-			dataType: 'json',
-			data: {path:url},
-			success: function(msg){
+            type: 'get',
+            url: "{:url('index/play')}",
+            dataType: 'json',
+            data: {path:url},
+            success: function(msg){
+                // 关闭加载层
+                var index = layer.load();
+                layer.close(index);
                 if(msg.code == '200'){
-
                     var storage=window.localStorage;
-
                     if(ischeck == 'yes'){
                         // 把链接存入localStorage
-
-
                         var time = new Date().getTime();
-
                         storage[time]= url;
-
                     }
-
                     var html = "";
-
                     var data = msg.data;
-
                     if(data.dir != ''){
-
                         $.each(data.dir, function(idx, obj) {
-
-                            html += '<li onmousemove="disBtn(this)" onmouseout="displayBtn(this)"><img src="/static/admin/images/file.jpg" id="'+obj.dir+'"><div class="edit" style="display:none;"><button class="layui-btn layui-btn-lg layui-btn-primary layui-btn-radius">'+obj.name+'</button></div></li>';
+                            html += '<li><img src="/static/admin/images/file.jpg" id="'+obj.dir+'"><div class="edit"><button class="layui-btn layui-btn-lg layui-btn-primary layui-btn-radius">'+obj.name+'</button></div></li>';
                             var id = '#'+obj.dir;
                             $(id).attr('onclick','openWin();');
                         });
                     }
-                    if(data.file != ''){
-
-                        var file = data.files;
-
-                        $.each(file, function(idx, obj) {
-
-                            html += '<li onmousemove="disBtn(this)" onmouseout="displayBtn(this)"><img src="'+obj.url+'"><div class="edit" style="display:none;"><button class="layui-btn">编辑</button><button class="layui-btn download"><a href="'+obj.url+'" download="'+obj.name+'">下载</a></button></div></li>';
-                        });
-
+                    var fileCount = getJsonLength(data.files);
+                    if(fileCount > 20){
+                        if(data.file != ''){
+                            var file = data.files;
+                            for (var i = 0; i < 20; i++) {
+                                html += '<li onmousemove="disBtn(this)" onmouseout="displayBtn(this)"><img id="'+file[i].nameid+'"  src="'+file[i].url+'"><div class="edit" style="display:none;"><button class="layui-btn">编辑</button><button class="layui-btn download"><a href="'+file[i].url+'" download="'+file[i].name+'">下载</a></button></div><p>'+file[i].name+'</p></li>';
+                            }
+                        }
+                        var page = 2;
+                        // 给更多追加
+                        $('#loadMore').text('加载更多');
+                        $('#loadMore').attr('onclick', 'loadMore('+page+',"'+url+'")');
+                    }else {
+                        if(data.file != ''){
+                            var file = data.files;
+                            for (var i = 0; i < fileCount; i++) {
+                                html += '<li onmousemove="disBtn(this)" onmouseout="displayBtn(this)"><img src="'+file[i].url+'"><div class="edit" style="display:none;"><button class="layui-btn">编辑</button><button class="layui-btn download"><a href="'+file[i].url+'" download="'+file[i].name+'">下载</a></button></div><p>'+file[i].name+'</p></li>';
+                            }
+                        }
+                        $('#loadMore').text('没有更多了');
                     }
                     $("#myFiles").html(html);
-
                     $.each(data.dir, function(idx, obj) {
                         var id = '#'+obj.dir;
                         $(id).attr('onclick','openWin("'+obj.dir+'");');
                     });
+                    $.each(data.files, function(idx, obj) {
+                        var id = '#'+obj.nameid;
+                        $(id).attr('onclick','loadPic("'+obj.url+'","'+obj[0]+'");');
+                    });
                     $('#newdir').attr('onclick','newdir("'+data.url+'");');
+                    $('#path').val(data.url);
                 }
-			},
-			beforeSend: function(request) {
-				request.setRequestHeader("X-Requested-Witzh","XMLHttpRequest");
-			}
-		});
+            },
+            beforeSend:function(XMLHttpRequest){
+                var index = layer.load(0, {shade: false}); //0代表加载的风格，支持0-2
+            },
+        });
+        // 缓冲加载
+        setTimeout('loaddir()',1000);
     }
     // 返回上一链接
     function goback()
@@ -254,6 +385,9 @@
             dataType: 'json',
             data: data,
             success: function(msg){
+                // 关闭加载层
+                var index = layer.load();
+                layer.close(index);
                 if(msg.code == 200){
                     if(msg.total-msg.deal > 0){
                         getCache(msg.total,msg.deal);
@@ -273,11 +407,12 @@
                             layer.closeAll();
                         }
                     });
+                    // $('.layui-layer-btn layui-layer-btn-c');
                 }
             },
-            beforeSend: function(request) {
-                request.setRequestHeader("X-Requested-Witzh","XMLHttpRequest");
-            }
+            beforeSend:function(XMLHttpRequest){
+                var index = layer.load(0, {shade: false}); //0代表加载的风格，支持0-2
+            },
         });
     }
     function getCache(total,deal)
@@ -296,7 +431,6 @@
                     var tip = $('#layerDemoauto');
                     if(msg.total-msg.deal > 0){
                         getCache(msg.total,msg.deal);
-
                         tip.html('<div class="load" style="padding: 20px 100px;">已成功更新缓存<span style="color:green;font-size:35px;">'+msg.deal+'</span>条链接！,还剩下<span style="color:red;font-size:35px;">'+(msg.total-msg.deal)+'</span>条！</div>');
                     }else {
                         tip.html('<div class="load" style="padding: 20px 100px;">已全部成功更新缓存<span style="color:green;font-size:35px;">'+msg.deal+'</span>条链接！</div>');
@@ -318,32 +452,48 @@
                 dataType: 'json',
                 data: {filename : name},
                 success: function(msg){
+                    // 关闭加载层
+                    var index = layer.load();
+                    layer.close(index);
                     if(msg.code == '200'){
-
                         var html = "";
-
                         var data = msg.data;
-
                         if(data.file != ''){
-
                             var file = data.files;
-
-                            // $.each(file, function(idx, obj) {
-
-                                html += '<li onmousemove="disBtn(this)" onmouseout="displayBtn(this)"><img src="'+file.url+'"><div class="edit" style="display:none;"><button class="layui-btn">编辑</button><button class="layui-btn download"><a href="'+file.url+'" download="'+file.name+'">下载</a></button></div></li>';
-                            // });
-
+                            html += '<li onmousemove="disBtn(this)" onmouseout="displayBtn(this)"><img src="'+file.url+'"><div class="edit" style="display:none;"><button class="layui-btn">编辑</button><button class="layui-btn download"><a href="'+file.url+'" download="'+file.name+'">下载</a></button></div></li>';
                         }
                         $("#myFiles").html(html);
                     }else {
                         layer.msg('搜索暂无对应数据!');
                     }
                 },
-                beforeSend: function(request) {
-                    request.setRequestHeader("X-Requested-Witzh","XMLHttpRequest");
-                }
+                beforeSend:function(XMLHttpRequest){
+                    var index = layer.load(0, {shade: false}); //0代表加载的风格，支持0-2
+                },
             });
         }
+    }
+    var myDropzone = new Dropzone("div#mydropzone", {
+        url: "{:url('Index/upload')}",//文件提交地址
+        method:"post",  //也可用put
+        paramName:"file", //默认为file
+        maxFiles:100,//一次性上传的文件数量上限
+        maxFilesize: 2, //文件大小，单位：MB
+        acceptedFiles: ".jpg,.gif,.png,.jpeg", //上传的类型
+        addRemoveLinks:true,
+        parallelUploads: 1,//一次上传的文件数量
+        //previewsContainer:"#preview",//上传图片的预览窗口
+        dictDefaultMessage:'拖动文件至此或者点击上传',
+        dictMaxFilesExceeded: "您最多只能上传100个文件！",
+        dictResponseError: '文件上传失败!',
+        dictInvalidFileType: "文件类型只能是*.jpg,*.gif,*.png,*.jpeg。",
+        dictFallbackMessage:"浏览器不受支持",
+        dictFileTooBig:"文件过大上传文件最大支持.",
+        dictRemoveLinks: "删除",
+        dictCancelUpload: "取消",
+    });
+    function reloadPage(){
+      location.reload()
     }
     </script>
 </body>

@@ -1,4 +1,5 @@
 <?php $en_zh=array (
+  'yunqi' => '运气',
   'huahui' => '花卉',
   'zhiwu' => '植物',
   'qiancheng' => '前程',
